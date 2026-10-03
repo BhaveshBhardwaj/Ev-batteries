@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "ev-battery",
+  "version-string": "0.1.0",
+  "description": "EV Battery Telemetry Analyzer and SoH Certification Engine",
+  "dependencies": [
+    "eigen3",
+    "gtest",
+    "benchmark",
+    "spdlog",
+    "fmt",
+    "nlohmann-json"
+  ]
+}

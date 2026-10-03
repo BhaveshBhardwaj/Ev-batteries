@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EV Battery Health Valuator & BPAN Tier 3 Certification Engine</title>
+  <meta name="description" content="Commercial EV Battery Health Certification Engine and Digital Battery Passport Valuator for Indian 2W/3W fleets (LFP/NMC), compliant with NITI Aayog BPAN Tier 3 specifications.">
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js for High-Resolution Interactive Plots -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="index.css">
+</head>
+<body class="light-theme">
+
+  <!-- Top Navigation & Brand Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="7" width="16" height="12" rx="2"/>
+            <path d="M6 11v4M10 11v4M14 11v4M20 11v4M20 9h1a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-1"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">Bharat Battery Passport <span>Tier 3</span></div>
+          <div class="brand-subtitle">Commercial 2W/3W EV Battery Health Valuator & Digital Passport Registry</div>
+        </div>
+      </div>
+
+      <div class="header-status-group">
+        <div class="compliance-badge">
+          <span class="pulse-dot"></span>
+          <span>NITI Aayog / MoRTH BPAN Standard</span>
+        </div>
+        <div class="gate-status-pill" id="globalGateStatus">
+          <span id="gateBadgeIcon">🛡️</span>
+          <span id="gateBadgeText">System Ready</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-layout">
+    
+    <!-- Left Sidebar: Controls, Presets & Ingestion -->
+    <aside class="control-sidebar">
+      
+      <!-- Preset Profiles Section -->
+      <section class="panel-card">
+        <div class="card-header">
+          <span class="card-icon">⚡</span>
+          <h2>Indian Fleet Presets (1-Click Test)</h2>
+        </div>
+        <div class="card-body">
+          <div class="preset-grid">
+            <button class="preset-btn active" id="presetOla2W" onclick="loadPreset('ola_2w')">
+              <span class="preset-title">Ola 2W Delivery</span>
+              <span class="preset-desc">16S 30Ah LFP • 120 EFC • Nominal</span>
+            </button>
+            <button class="preset-btn" id="presetZyppSummer" onclick="loadPreset('zypp_summer')">
+              <span class="preset-title">Zypp 45°C Summer</span>
+              <span class="preset-desc">High Thermal Stress • TDI 2.8x</span>
+            </button>
+            <button class="preset-btn" id="presetBluSmart3W" onclick="loadPreset('blusmart_3w')">
+              <span class="preset-title">BluSmart 3W Fleet</span>
+              <span class="preset-desc">450 EFC • Aged Pack • 82% SoH</span>
+            </button>
+            <button class="preset-btn warning" id="presetPartialGpr" onclick="loadPreset('partial_gpr')">
+              <span class="preset-title">Partial Opportunity Charge</span>
+              <span class="preset-desc">30%–55% SoC • M10 GPR Active</span>
+            </button>
+            <button class="preset-btn danger" id="presetSensorFault" onclick="loadPreset('sensor_fault')">
+              <span class="preset-title">Shunt Sensor Fault</span>
+              <span class="preset-desc">2.1A Zero-Drift • Gate 2 Reject</span>
+            </button>
+            <button class="preset-btn danger" id="presetHeavyDropout" onclick="loadPreset('heavy_dropout')">
+              <span class="preset-title">Severe Packet Loss</span>
+              <span class="preset-desc">>25% Dropout • Gate 1 Reject</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Custom Ingestion & File Upload -->
+      <section class="panel-card">
+        <div class="card-header">
+          <span class="card-icon">📂</span>
+          <h2>Telemetry Upload (CSV / JSON)</h2>
+        </div>
+        <div class="card-body">
+          <div class="drop-zone" id="dropZone">
+            <input type="file" id="fileInput" accept=".csv,.json" class="file-input-hidden">
+            <div class="drop-icon">📤</div>
+            <div class="drop-text">Drag & drop <strong>.csv</strong> or <strong>.json</strong></div>
+            <button type="button" class="btn-secondary" id="browseFileBtn" onclick="document.getElementById('fileInput').click()">Browse Telemetry File</button>
+          </div>
+
+          <!-- Pack Identification Form -->
+          <form class="metadata-form" id="metadataForm" onsubmit="event.preventDefault(); runPipeline();">
+            <div class="form-row">
+              <label for="inputBpanId">BPAN ID</label>
+              <input type="text" id="inputBpanId" value="IN-BPAN-2W-LFP-00941" required>
+            </div>
+            <div class="form-row two-col">
+              <div>
+                <label for="inputChemistry">Chemistry</label>
+                <select id="inputChemistry">
+                  <option value="LFP" selected>LFP (16S 51.2V)</option>
+                  <option value="NMC">NMC (14S 51.8V)</option>
+                </select>
+              </div>
+              <div>
+                <label for="inputCapacity">Capacity (Ah)</label>
+                <input type="number" id="inputCapacity" value="30.0" step="0.1" required>
+              </div>
+            </div>
+            <div class="form-row two-col">
+              <div>
+                <label for="inputEfc">Lifetime EFC</label>
+                <input type="number" id="inputEfc" value="120.0" step="1" required>
+              </div>
+              <div>
+                <label for="inputVehicle">Category</label>
+                <select id="inputVehicle">
+                  <option value="2W" selected>2-Wheeler (2W)</option>
+                  <option value="3W">3-Wheeler (3W)</option>
+                  <option value="SWAP">Swapping Station</option>
+                </select>
+              </div>
+            </div>
+            
+            <button type="button" class="btn-primary full-width" id="executePipelineBtn" onclick="runPipeline()">
+              <span>⚡ Execute Certification Pipeline</span>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Interactive Sim-to-Real Tweakers -->
+      <section class="panel-card collapsible">
+        <div class="card-header">
+          <span class="card-icon">🎛️</span>
+          <h2>Physics Simulation Tweakers</h2>
+        </div>
+        <div class="card-body">
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Ambient Temp (°C)</span>
+              <span id="valAmbientTemp">42 °C</span>
+            </div>
+            <input type="range" id="sliderAmbientTemp" min="20" max="55" value="42" oninput="updateSlider('AmbientTemp', ' °C')">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Current Sensor Zero-Bias (A)</span>
+              <span id="valCurrentOffset">0.50 A</span>
+            </div>
+            <input type="range" id="sliderCurrentOffset" min="-2.5" max="2.5" step="0.1" value="0.5" oninput="updateSlider('CurrentOffset', ' A')">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Packet Dropout Probability (%)</span>
+              <span id="valPacketDrop">2 %</span>
+            </div>
+            <input type="range" id="sliderPacketDrop" min="0" max="40" value="2" oninput="updateSlider('PacketDrop', ' %')">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Voltage Impulse Noise (V)</span>
+              <span id="valVoltageNoise">0.03 V</span>
+            </div>
+            <input type="range" id="sliderVoltageNoise" min="0.0" max="0.25" step="0.01" value="0.03" oninput="updateSlider('VoltageNoise', ' V')">
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- Right Center: Analytical Dashboard, Charts & Certificate -->
+    <div class="dashboard-content">
+      
+      <!-- Top Certified Metric Cards -->
+      <section class="metric-ribbon">
+        <div class="metric-card certified-highlight">
+          <div class="metric-label">Certified State-of-Health (SoH)</div>
+          <div class="metric-value" id="dispSoh">-- <span class="unit">%</span></div>
+          <div class="metric-subtext" id="dispUsableCapacity">Usable: -- Ah (Nominal 30.0 Ah)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label">90% Conformal Confidence Band</div>
+          <div class="metric-value small" id="dispConformalBounds">[-- %, -- %]</div>
+          <div class="metric-subtext" id="dispIntervalWidth">Width: -- % (Threshold &le; 5.0%)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label">Projected Remaining Useful Life</div>
+          <div class="metric-value" id="dispRul">-- <span class="unit">cycles</span></div>
+          <div class="metric-subtext" id="dispEolCondition">To 70.0% Commercial Fleet EoL</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label">Arrhenius Thermal Index (TDI)</div>
+          <div class="metric-value" id="dispTdi">-- <span class="unit">x</span></div>
+          <div class="metric-subtext" id="dispThermalSeverity">Severity: Normal</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label">Gate 1–3 Safety Decision</div>
+          <div class="metric-value small status-text" id="dispDecision">--</div>
+          <div class="metric-subtext" id="dispGateSummary">All Safety Gates Passed</div>
+        </div>
+      </section>
+
+      <!-- Navigation Tabs for Feature Deep-Dives -->
+      <nav class="feature-tabs" id="featureTabs">
+        <button class="tab-btn active" id="tabPassportBtn" onclick="switchTab('tabPassport')">BPAN Tier 3 Passport</button>
+        <button class="tab-btn" id="tabIcaDvaBtn" onclick="switchTab('tabIcaDva')">Electrochemical ICA / DVA (M05, M06)</button>
+        <button class="tab-btn" id="tabGprBtn" onclick="switchTab('tabGpr')">Partial Charge GPR (M10)</button>
+        <button class="tab-btn" id="tabQualityBtn" onclick="switchTab('tabQuality')">Telemetry Quality & Gate 1 (M12)</button>
+        <button class="tab-btn" id="tabSignalChainBtn" onclick="switchTab('tabSignalChain')">Cleaning & Calibration (M02, M07)</button>
+        <button class="tab-btn" id="tabThermalBtn" onclick="switchTab('tabThermal')">Thermal Degradation (M14)</button>
+      </nav>
+
+      <!-- Tab 1: BPAN Tier 3 Official Passport & Cryptographic Seal -->
+      <section class="tab-pane active" id="tabPassport">
+        <div class="passport-grid">
+          
+          <!-- Official Certificate Card -->
+          <div class="certificate-paper">
+            <div class="cert-header">
+              <div class="emblem-container">
+                <div class="ashoka-placeholder">🏛️</div>
+                <div class="gov-text">
+                  <div class="gov-title">GOVERNMENT OF INDIA</div>
+                  <div class="gov-dept">NITI Aayog • Ministry of Road Transport and Highways (MoRTH)</div>
+                  <div class="cert-name">BPAN TIER 3 BATTERY PASSPORT & HEALTH VALUATION</div>
+                </div>
+              </div>
+              <div class="cert-qr" id="certQrDisplay">
+                <div class="qr-box">
+                  <div class="qr-pattern"></div>
+                  <span>BPAN SECURE</span>
+                </div>
+              </div>
+            </div>
+
+            <hr class="cert-divider">
+
+            <div class="cert-meta-table">
+              <div class="meta-item">
+                <span class="meta-label">BPAN Registry ID</span>
+                <span class="meta-val" id="certBpanId">IN-BPAN-2W-LFP-00941</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Pack Serial Number</span>
+                <span class="meta-val" id="certSerial">TATAPWR-LFP-2026-X</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Vehicle Category</span>
+                <span class="meta-val" id="certCategory">2-Wheeler (2W Fleet)</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Cell Chemistry</span>
+                <span class="meta-val" id="certChemistry">LFP (16S 51.2V Nominal)</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Nameplate Capacity</span>
+                <span class="meta-val" id="certRatedCap">30.00 Ah</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Certified Usable Cap</span>
+                <span class="meta-val highlight" id="certUsableCap">25.92 Ah</span>
+              </div>
+            </div>
+
+            <div class="cert-health-box">
+              <div class="health-col">
+                <div class="health-title">Certified State of Health</div>
+                <div class="health-big" id="certBigSoh">86.4 %</div>
+                <div class="health-sub" id="certBounds">90% Conf: [84.1%, 88.7%]</div>
+              </div>
+              <div class="health-col border-left">
+                <div class="health-title">Degradation Mechanism</div>
+                <div class="health-mode" id="certPrimaryMode">BALANCED AGING</div>
+                <div class="health-sub" id="certLliLam">LLI: 12.8% • LAM: 9.6%</div>
+              </div>
+              <div class="health-col border-left">
+                <div class="health-title">Remaining Useful Life</div>
+                <div class="health-big" id="certBigRul">1,420</div>
+                <div class="health-sub">Equivalent Full Cycles to EoL</div>
+              </div>
+            </div>
+
+            <!-- Cryptographic Immutability Seal -->
+            <div class="crypto-seal-box">
+              <div class="crypto-header">
+                <span class="crypto-title">🔒 FIPS 180-2 SHA-256 DIGITAL IMMUTABILITY SEAL</span>
+                <span class="crypto-verified-badge" id="cryptoBadge">✓ VERIFIED & VALID</span>
+              </div>
+              <div class="crypto-field">
+                <label>Evaluation Timestamp (UTC):</label>
+                <span id="certTimestamp">2026-10-03T21:50:00Z</span>
+              </div>
+              <div class="crypto-field">
+                <label>Canonical Payload:</label>
+                <code class="code-block-small" id="certCanonicalPayload">IN-BPAN-2W-LFP-00941|2026-10-03T21:50:00Z|86.40|[84.10,88.70]|1420.00|1.35|CERTIFIED</code>
+              </div>
+              <div class="crypto-field">
+                <label>SHA-256 Cryptographic Digest:</label>
+                <code class="code-block-digest" id="certSha256Digest">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</code>
+              </div>
+            </div>
+
+            <!-- Interactive Tamper Simulator -->
+            <div class="tamper-sim-card">
+              <div class="tamper-header">
+                <span>🛡️ Interactive Tamper Detection Audit Test</span>
+                <span class="tamper-hint">Try editing certified SoH by 0.01% to see cryptographic avalanche</span>
+              </div>
+              <div class="tamper-body">
+                <div class="tamper-inputs">
+                  <label for="tamperSohInput">Test Modified SoH (%):</label>
+                  <input type="number" id="tamperSohInput" value="86.40" step="0.01" oninput="testTamper()">
+                  <button type="button" class="btn-outline" id="resetTamperBtn" onclick="resetTamper()">Reset Original</button>
+                </div>
+                <div class="tamper-result" id="tamperResultBox">
+                  <div id="tamperStatusText">Signatures Match: Certificate Integrity Intact.</div>
+                  <div class="tamper-diff" id="tamperDiffText">0 characters differ.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="cert-actions">
+              <button type="button" class="btn-secondary" id="downloadJsonBtn" onclick="downloadJsonCertificate()">Download BPAN Tier 3 JSON</button>
+              <button type="button" class="btn-secondary" id="downloadReportBtn" onclick="downloadInspectionReport()">Download Inspection Report</button>
+              <button type="button" class="btn-primary" id="printCertBtn" onclick="window.print()">Print Official Certificate</button>
+            </div>
+
+          </div>
+
+          <!-- Raw JSON / Spec Inspector -->
+          <div class="panel-card json-viewer-card">
+            <div class="card-header">
+              <span class="card-icon">💻</span>
+              <h2>BPAN Tier 3 JSON Payload View</h2>
+            </div>
+            <div class="card-body">
+              <pre class="json-code" id="rawJsonViewer">// JSON output will render here after execution</pre>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Tab 2: Electrochemical ICA / DVA (M05 & M06) -->
+      <section class="tab-pane" id="tabIcaDva">
+        <div class="panel-grid-two">
+          <div class="panel-card">
+            <div class="card-header">
+              <span class="card-icon">📈</span>
+              <h2>Incremental Capacity Curve dQ/dV vs Voltage (M05)</h2>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="chartIca"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="card-header">
+              <span class="card-icon">📉</span>
+              <h2>Differential Voltage Curve dV/dQ vs Capacity (M05)</h2>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="chartDva"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card mt-4">
+          <div class="card-header">
+            <span class="card-icon">🔍</span>
+            <h2>Electrochemical Aging Features (M06: Topographic Prominence Tracking)</h2>
+          </div>
+          <div class="card-body">
+            <div class="feature-metrics-grid">
+              <div class="feat-box">
+                <div class="feat-label">Primary Peak Voltage (V_p1)</div>
+                <div class="feat-val" id="featVp1">-- V</div>
+                <div class="feat-desc">Cathode phase equilibrium</div>
+              </div>
+              <div class="feat-box">
+                <div class="feat-label">Primary Peak Height (h_p1)</div>
+                <div class="feat-val" id="featHp1">-- Ah/V</div>
+                <div class="feat-desc">Proxy for LAM (Active material)</div>
+              </div>
+              <div class="feat-box">
+                <div class="feat-label">Peak Integration Area (A_p1)</div>
+                <div class="feat-val" id="featAp1">-- Ah</div>
+                <div class="feat-desc">Delivered capacity under peak</div>
+              </div>
+              <div class="feat-box">
+                <div class="feat-label">Decoupled LLI Degradation</div>
+                <div class="feat-val" id="featLli">-- %</div>
+                <div class="feat-desc">Loss of Lithium Inventory</div>
+              </div>
+              <div class="feat-box">
+                <div class="feat-label">Decoupled LAM Degradation</div>
+                <div class="feat-val" id="featLam">-- %</div>
+                <div class="feat-desc">Loss of Active Material</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 3: Partial Charge Gaussian Process Regression (M10) -->
+      <section class="tab-pane" id="tabGpr">
+        <div class="panel-card">
+          <div class="card-header">
+            <span class="card-icon">🔮</span>
+            <h2>Gaussian Process Regression (GPR) Curve Reconstruction (M10)</h2>
+            <span class="badge info">Solves Partial Opportunity Charging (&Delta;SoC &lt; 20%)</span>
+          </div>
+          <div class="card-body">
+            <p class="section-explanation">
+              Commercial EV drivers rarely perform complete 0%–100% depot charges. GPR non-parametrically models the non-linear relationship between voltage and cumulative charge, estimating the true charge trajectory and its epistemic confidence band (&plusmn;1.96&sigma;) across unobserved voltage wings.
+            </p>
+            <div class="chart-container large">
+              <canvas id="chartGpr"></canvas>
+            </div>
+            <div class="gpr-summary-stats mt-4">
+              <div class="stat-item">
+                <span class="stat-name">Observed Range:</span>
+                <span class="stat-value" id="gprObsRange">51.2V – 53.8V</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-name">Reconstructed Range:</span>
+                <span class="stat-value" id="gprReconRange">48.0V – 58.4V</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-name">Max Epistemic Uncertainty:</span>
+                <span class="stat-value" id="gprMaxUnc">&plusmn; 0.45 Ah</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-name">Cholesky Inversion Time:</span>
+                <span class="stat-value" id="gprLatency">1.34 ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 4: Telemetry Quality Scoring & Gate 1 (M12) -->
+      <section class="tab-pane" id="tabQuality">
+        <div class="panel-card">
+          <div class="card-header">
+            <span class="card-icon">🎯</span>
+            <h2>Gate 1: Telemetry Quality Scoring (TQS) Breakdown (M12)</h2>
+          </div>
+          <div class="card-body">
+            <div class="tqs-dashboard-grid">
+              
+              <!-- Total Score Circular / Progress Bar -->
+              <div class="tqs-score-summary">
+                <div class="tqs-circle" id="tqsCircle">
+                  <div class="tqs-number" id="tqsNumber">92</div>
+                  <div class="tqs-out-of">/ 100</div>
+                </div>
+                <div class="tqs-classification" id="tqsLabel">EXCELLENT QUALITY</div>
+                <div class="tqs-gate-badge pass" id="tqsGateBadge">GATE 1 PASSED (&ge; 30.0)</div>
+              </div>
+
+              <!-- 4 Dimensional Progress Breakdown -->
+              <div class="tqs-dimensions">
+                
+                <div class="dim-row">
+                  <div class="dim-header">
+                    <span>1. Sampling Regularity (Jitter)</span>
+                    <span id="scoreJitter">24.5 / 25.0</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-fill" id="barJitter" style="width: 98%;"></div>
+                  </div>
+                  <div class="dim-sub" id="detailJitter">Coefficient of Variation: 0.02 (1.0s clock)</div>
+                </div>
+
+                <div class="dim-row">
+                  <div class="dim-header">
+                    <span>2. Packet Transmission Completeness</span>
+                    <span id="scoreDrop">28.8 / 30.0</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-fill" id="barDrop" style="width: 96%;"></div>
+                  </div>
+                  <div class="dim-sub" id="detailDrop">Missing Duration Ratio: 0.8% dropout</div>
+                </div>
+
+                <div class="dim-row">
+                  <div class="dim-header">
+                    <span>3. Physical Sensor Plausibility</span>
+                    <span id="scorePlaus">25.0 / 25.0</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-fill" id="barPlaus" style="width: 100%;"></div>
+                  </div>
+                  <div class="dim-sub" id="detailPlaus">100% samples inside [30V, 65V] &amp; [-10°C, 75°C]</div>
+                </div>
+
+                <div class="dim-row">
+                  <div class="dim-header">
+                    <span>4. High-Frequency SNR & Roughness</span>
+                    <span id="scoreSnr">17.5 / 20.0</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-fill" id="barSnr" style="width: 87.5%;"></div>
+                  </div>
+                  <div class="dim-sub" id="detailSnr">Voltage noise std dev: 0.018 V</div>
+                </div>
+
+              </div>
+
+            </div>
+
+            <div class="alert-box mt-4" id="tqsAlertBox">
+              <strong>Diagnostic Summary: </strong><span id="tqsDiagnosticText">Telemetry meets high-reliability standards for electrochemical health valuation.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 5: Data Cleaning & Calibration (M02 & M07) -->
+      <section class="tab-pane" id="tabSignalChain">
+        <div class="panel-card">
+          <div class="card-header">
+            <span class="card-icon">🧹</span>
+            <h2>Data Cleaning & Telemetry Conditioning (M02)</h2>
+          </div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="chartCleaning"></canvas>
+            </div>
+            <div class="clean-stats-grid mt-4">
+              <div class="cstat-box">
+                <div class="cstat-num" id="cleanSpikes">18</div>
+                <div class="cstat-name">Impulse Spikes Filtered (Hampel)</div>
+              </div>
+              <div class="cstat-box">
+                <div class="cstat-num" id="cleanGaps">6</div>
+                <div class="cstat-name">Timestamp Gaps Repaired</div>
+              </div>
+              <div class="cstat-box">
+                <div class="cstat-num" id="cleanStuck">0</div>
+                <div class="cstat-name">Stuck Sensor Flatlines</div>
+              </div>
+              <div class="cstat-box">
+                <div class="cstat-num" id="cleanDuration">3,600s</div>
+                <div class="cstat-name">Continuous Repaired Span</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card mt-4">
+          <div class="card-header">
+            <span class="card-icon">⚖️</span>
+            <h2>Gate 2: Current-Sensor Self-Calibration (M07)</h2>
+          </div>
+          <div class="card-body">
+            <div class="calib-grid">
+              <div class="calib-item">
+                <span class="c-title">Zero-Bias Offset (&alpha;):</span>
+                <span class="c-val" id="calibOffset">0.50 A</span>
+                <span class="c-limit">Hardware Limit &le; 1.50 A</span>
+              </div>
+              <div class="calib-item">
+                <span class="c-title">Gain Scaling Factor (&beta;):</span>
+                <span class="c-val" id="calibGain">1.010</span>
+                <span class="c-limit">Hardware Error &le; 0.080</span>
+              </div>
+              <div class="calib-item">
+                <span class="c-title">Dual OCV Anchors:</span>
+                <span class="c-val" id="calibAnchors">Found (38% &rarr; 85%)</span>
+                <span class="c-limit">Min &Delta;SoC &ge; 8.0%</span>
+              </div>
+              <div class="calib-item">
+                <span class="c-title">Gate 2 Sensor Status:</span>
+                <span class="c-val text-success" id="calibGate2">PASS (No Fault)</span>
+                <span class="c-limit">Drift Reduced by 93.3%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 6: Thermal Degradation Analytics (M14) -->
+      <section class="tab-pane" id="tabThermal">
+        <div class="panel-card">
+          <div class="card-header">
+            <span class="card-icon">🌡️</span>
+            <h2>Arrhenius Thermal Degradation Stress Modeling (M14)</h2>
+          </div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="chartThermal"></canvas>
+            </div>
+            <div class="thermal-stats-grid mt-4">
+              <div class="tstat-box">
+                <div class="tstat-num" id="tstatMean">38.4 °C</div>
+                <div class="tstat-name">Mean Operating Temperature</div>
+              </div>
+              <div class="tstat-box">
+                <div class="tstat-num" id="tstatPeak">44.8 °C</div>
+                <div class="tstat-name">Peak Temperature Reached</div>
+              </div>
+              <div class="tstat-box">
+                <div class="tstat-num" id="tstatDwell40">1,850 s</div>
+                <div class="tstat-name">Dwell Time Above 40°C</div>
+              </div>
+              <div class="tstat-box">
+                <div class="tstat-num" id="tstatDwell45">0 s</div>
+                <div class="tstat-name">Dwell Time Above 45°C</div>
+              </div>
+              <div class="tstat-box">
+                <div class="tstat-num" id="tstatRate">0.82 °C/min</div>
+                <div class="tstat-name">Peak Heating Rate (dT/dt)</div>
+              </div>
+              <div class="tstat-box">
+                <div class="tstat-num" id="tstatTdi">1.45x</div>
+                <div class="tstat-name">Arrhenius Stress Multiplier</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Notification Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

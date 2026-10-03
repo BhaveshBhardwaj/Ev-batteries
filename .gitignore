@@ -1,0 +1,32 @@
+build/
+build-*/
+out/
+.cmake/
+.cache/
+compile_commands.json
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.user
+CMakeUserPresets.json
+
+# Native build outputs
+*.obj
+*.o
+*.exe
+*.lib
+*.dll
+*.so
+*.dylib
+*.a
+
+# Downloaded research archives and extracted binary datasets
+data/reference/**/*.mat
+data/reference/**/*.zip
+
+# Platform and temporary files
+.DS_Store
+Thumbs.db
+*.log
