@@ -1,0 +1,43 @@
+================================================================================
+           GOVERNMENT OF INDIA - NITI AAYOG / MoRTH BATTERY PASSPORT
+           BPAN TIER 3 BATTERY HEALTH & VALUATION CERTIFICATE
+================================================================================
+1. PACK REGISTRATION & METADATA
+   BPAN ID              : IN-BPAN-2W-LFP-00941
+   Serial Number        : OEM-2026-X
+   Vehicle Category     : 2W
+   Cell Chemistry       : LFP (16S Pack)
+   Nominal Rating       : 30.00 Ah / 51.20 V
+
+2. CERTIFIED HEALTH VALUATION (BPAN TIER 3)
+   Certified SoH        : 94.01 %
+   Usable Pack Capacity : 28.20 Ah
+   Lifetime Usage (EFC) : 120.00 cycles
+   Projected RUL        : 356.30 cycles (to 70.0% EoL)
+
+3. CONFORMAL UNCERTAINTY & GATE 3 SAFETY
+   90% Confidence Bounds: [91.55 %, 96.46 %]
+   Interval Width       : 4.91 % (Threshold <= 5.00 %)
+   Statistical Coverage : 90.00 % Finite-Sample Guaranteed
+
+4. DEGRADATION & THERMAL DIAGNOSTICS
+   Primary Degradation  : LLI_DOMINATED
+   Loss of Li Inventory : 100.00 % (LLI)
+   Loss of Active Mat.  : 0.00 % (LAM)
+   Arrhenius TDI Multi. : 1.35x
+   Operating Temperature: Mean 29.29 °C | Peak 30.40 °C
+
+5. SENSOR HEALTH & HARDWARE CALIBRATION (GATE 2)
+   Sensor Offset Bias   : -0.0005 A (Limit <= 1.5000 A)
+   Sensor Gain Factor   : 1.0003 (Limit error <= 0.0800)
+
+6. OFFICIAL CERTIFICATION DECISION
+   Status               : [CERTIFIED] PASS
+   Decision Rationale   : CERTIFIED: High certainty valuation. 90% Conformal Interval [91.55%, 96.46%] (width 4.91%) meets Gate 3 commercial threshold (<= 5.00%).
+
+================================================================================
+7. CRYPTOGRAPHIC IMMUTABILITY & AUDIT PROOF (FIPS 180-2 SHA-256)
+   Timestamp (UTC)      : 2026-11-04T07:24:43Z
+   Canonical Payload    : IN-BPAN-2W-LFP-00941|2026-11-04T07:24:43Z|94.01|[91.55,96.46]|356.30|1.35|CERTIFIED
+   Digital Signature    : ab2fb7b9be0a15e0c132a208e73e981c9c3c0190eb35b2e06cc3ed547ea11849
+================================================================================

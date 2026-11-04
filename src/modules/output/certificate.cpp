@@ -10,6 +10,7 @@
 #include <ev/battery/segmentation/segmentation.hpp>
 #include <ev/battery/thermal/thermal.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -181,7 +182,30 @@ common::Result<HealthCertificate> generateHealthCertificate(
     cert.evaluation_timestamp_utc = getCurrentUtcTimestamp();
 
     // 0. Gate 1: Telemetry Quality Scoring Pre-Qualification
-    auto tqs_report = quality_score::computeQualityScore(series);
+    quality_score::QualityConfig tqs_cfg;
+    if (metadata.series_cells > 0) {
+        double cell_min = (metadata.chemistry == "NMC") ? 2.5 : 2.0;
+        double cell_max = (metadata.chemistry == "NMC") ? 4.35 : 3.8;
+        tqs_cfg.min_plausible_voltage_v = metadata.series_cells * cell_min * 0.85;
+        tqs_cfg.max_plausible_voltage_v = metadata.series_cells * cell_max * 1.15;
+    }
+    // Auto-detect base sampling period from series median dt if > 1.2s (e.g. NASA 2.8s or IoT 5s)
+    if (series.samples.size() >= 10) {
+        std::vector<double> sample_dts;
+        sample_dts.reserve(std::min<size_t>(30, series.samples.size() - 1));
+        for (size_t k = 1; k < std::min<size_t>(30, series.samples.size()); ++k) {
+            double dt = series.samples[k].timestamp_s - series.samples[k-1].timestamp_s;
+            if (dt > 0.05 && dt < 60.0) sample_dts.push_back(dt);
+        }
+        if (!sample_dts.empty()) {
+            std::sort(sample_dts.begin(), sample_dts.end());
+            double med_dt = sample_dts[sample_dts.size() / 2];
+            if (med_dt > 1.2) {
+                tqs_cfg.nominal_dt_s = med_dt;
+            }
+        }
+    }
+    auto tqs_report = quality_score::computeQualityScore(series, tqs_cfg);
     if (!tqs_report.gate1_passed) {
         cert.is_certified = false;
         cert.certification_decision = "AUDIT_REQUIRED";
@@ -212,6 +236,7 @@ common::Result<HealthCertificate> generateHealthCertificate(
     // 3. Current Sensor Calibration
     calibration::CalibrationConfig calib_cfg;
     calib_cfg.nominal_capacity_ah = metadata.nominal_capacity_ah;
+    calib_cfg.ocv_table = calibration::getScaledOcvTable(metadata.chemistry, metadata.series_cells);
     auto calib_res = calibration::calibrateTimeSeries(cleaned_series, segments, calib_cfg);
 
     common::InternalTimeSeries calibrated_series = cleaned_series;

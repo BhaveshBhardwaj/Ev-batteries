@@ -1,4 +1,5 @@
 #include <ev/battery/estimation/estimation.hpp>
+#include <ev/battery/estimation/trained_model.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -92,16 +93,19 @@ common::Result<EstimationReport> estimateBatteryHealth(
     r_voltage = std::clamp(r_voltage, 0.50, 1.0);
 
     // ─────────────────────────────────────────────────────────────
-    // 2. Multi-Modal SoH Regression
+    // 2. Machine Learning Regression & Multi-Modal SoH Estimation
     // ─────────────────────────────────────────────────────────────
+    double ml_soh_pct = predictSoHPct(r_area, r_height, v_shift);
+
     double w_area = config.weight_peak_area;
     double w_height = config.weight_peak_height;
     double w_voltage = config.weight_voltage_shift;
     double w_sum = w_area + w_height + w_voltage;
     if (w_sum <= 1e-6) w_sum = 1.0;
 
-    double weighted_soh_fraction = (w_area * r_area + w_height * r_height + w_voltage * r_voltage) / w_sum;
-    report.soh_percent = std::clamp(weighted_soh_fraction * 100.0, 0.0, 100.0);
+    double heuristic_soh_pct = std::clamp(((w_area * r_area + w_height * r_height + w_voltage * r_voltage) / w_sum) * 100.0, 0.0, 100.0);
+    // Blend calibrated ML regression with electrochemical physics prior
+    report.soh_percent = std::clamp(0.40 * ml_soh_pct + 0.60 * heuristic_soh_pct, 0.0, 100.0);
     report.estimated_capacity_ah = nominal_cap_ah * (report.soh_percent / 100.0);
 
     // ─────────────────────────────────────────────────────────────

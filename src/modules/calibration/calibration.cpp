@@ -26,6 +26,12 @@ namespace {
     return base + slope + lower_knee + upper_knee + phase1 + phase2 + phase3;
 }
 
+// Helper: Compute analytical cell OCV for NMC (3.0V - 4.2V)
+[[nodiscard]] double analyticalNmcCellOcv(double soc) noexcept {
+    const double z = std::clamp(soc, 0.001, 0.999);
+    return 3.0 + 1.15 * z + 0.05 * std::log(z + 0.01) - 0.05 * std::exp(25.0 * (z - 1.0));
+}
+
 struct RestInterval {
     size_t start_idx = 0;
     size_t end_idx = 0;
@@ -39,15 +45,20 @@ struct RestInterval {
 } // namespace
 
 std::vector<OcvPoint> getDefaultLfp16sOcvTable() {
+    return getScaledOcvTable("LFP", 16);
+}
+
+std::vector<OcvPoint> getScaledOcvTable(std::string_view chemistry, int series_cells) {
     constexpr size_t kPoints = 250;
-    constexpr double kSeriesCells = 16.0;
+    const double n_cells = (series_cells > 0) ? static_cast<double>(series_cells) : (chemistry == "NMC" ? 14.0 : 16.0);
     std::vector<OcvPoint> table;
     table.reserve(kPoints);
 
     double prev_v = 0.0;
     for (size_t i = 0; i < kPoints; ++i) {
         double soc = 0.001 + (static_cast<double>(i) / static_cast<double>(kPoints - 1)) * (0.999 - 0.001);
-        double v = analyticalLfpCellOcv(soc) * kSeriesCells;
+        double cell_v = (chemistry == "NMC") ? analyticalNmcCellOcv(soc) : analyticalLfpCellOcv(soc);
+        double v = cell_v * n_cells;
         if (i > 0 && v <= prev_v) {
             v = prev_v + 1e-5; // Enforce strict monotonicity
         }
@@ -233,7 +244,15 @@ common::Result<std::pair<common::InternalTimeSeries, CalibrationReport>> calibra
     // Reference OCV table resolution
     std::vector<OcvPoint> ocv_table = config.ocv_table;
     if (ocv_table.empty()) {
-        ocv_table = getDefaultLfp16sOcvTable();
+        std::string chem = series.chemistry.empty() ? "LFP" : series.chemistry;
+        int n_cells = (chem == "NMC") ? 14 : 16;
+        if (!series.samples.empty()) {
+            double v_sample = series.samples.front().voltage_v;
+            if (v_sample < 5.0) {
+                n_cells = 1; // Single cell laboratory test
+            }
+        }
+        ocv_table = getScaledOcvTable(chem, n_cells);
     }
 
     // ─────────────────────────────────────────────────────────────

@@ -1,0 +1,47 @@
+{
+  "bpan_tier": 3,
+  "bpan_metadata": {
+    "bpan_id": "IN-BPAN-2W-LFP-00941",
+    "serial_number": "OEM-2026-X",
+    "chemistry": "LFP",
+    "vehicle_category": "2W",
+    "nominal_capacity_ah": 30.00,
+    "nominal_voltage_v": 51.20,
+    "series_cells": 16
+  },
+  "certified_health_valuation": {
+    "certified_soh_pct": 94.01,
+    "usable_capacity_ah": 28.20,
+    "lifetime_efc": 120.00
+  },
+  "conformal_uncertainty": {
+    "soh_lower_bound_pct": 91.55,
+    "soh_upper_bound_pct": 96.46,
+    "confidence_interval_width_pct": 4.91,
+    "coverage_level": 0.90
+  },
+  "degradation_diagnostics": {
+    "remaining_useful_life_cycles": 356.30,
+    "lli_percent": 100.00,
+    "lam_percent": 0.00,
+    "primary_degradation_mode": "LLI_DOMINATED"
+  },
+  "operational_thermal_sensor": {
+    "thermal_degradation_index": 1.35,
+    "mean_temperature_c": 29.29,
+    "max_temperature_c": 30.40,
+    "sensor_offset_bias_a": -0.0005,
+    "sensor_gain_factor": 1.0003
+  },
+  "certification_status": {
+    "is_certified": true,
+    "certification_decision": "CERTIFIED",
+    "decision_rationale": "CERTIFIED: High certainty valuation. 90% Conformal Interval [91.55%, 96.46%] (width 4.91%) meets Gate 3 commercial threshold (<= 5.00%)."
+  },
+  "cryptographic_signature": {
+    "algorithm": "SHA-256",
+    "evaluation_timestamp_utc": "2026-11-04T07:24:43Z",
+    "canonical_payload": "IN-BPAN-2W-LFP-00941|2026-11-04T07:24:43Z|94.01|[91.55,96.46]|356.30|1.35|CERTIFIED",
+    "sha256_digital_signature": "ab2fb7b9be0a15e0c132a208e73e981c9c3c0190eb35b2e06cc3ed547ea11849"
+  }
+}

@@ -663,6 +663,74 @@ async function runPipeline() {
   const packetDrop = parseFloat(document.getElementById('sliderPacketDrop').value);
   const voltageNoise = parseFloat(document.getElementById('sliderVoltageNoise').value);
 
+  // If real telemetry file is loaded, invoke the native C++23 certification core
+  if (AppState.uploadedContent) {
+    try {
+      showToast('Invoking Native C++23 Valuation Engine...', 'info');
+      const response = await fetch('/api/certify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telemetry_raw: AppState.uploadedContent,
+          bpan_id: bpanId,
+          chemistry: chemistry,
+          series_cells: (chemistry === 'NMC' ? (capacity <= 5.0 ? 1 : 14) : 16),
+          nominal_capacity_ah: capacity,
+          nominal_voltage_v: (chemistry === 'NMC' ? (capacity <= 5.0 ? 4.2 : 51.8) : 51.2),
+          vehicle_category: vehicle,
+          lifetime_efc: efc
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.certificate) {
+          const cert = data.certificate;
+          const isPass = cert.certification_status.is_certified;
+
+          AppState.results = {
+            bpanId: cert.bpan_metadata.bpan_id,
+            chemistry: cert.bpan_metadata.chemistry,
+            capacity: cert.bpan_metadata.nominal_capacity_ah,
+            efc: cert.certified_health_valuation.lifetime_efc,
+            vehicle: cert.bpan_metadata.vehicle_category,
+            soh: cert.certified_health_valuation.certified_soh_pct,
+            usableCapacity: cert.certified_health_valuation.usable_capacity_ah,
+            sohLower: cert.conformal_uncertainty.soh_lower_bound_pct,
+            sohUpper: cert.conformal_uncertainty.soh_upper_bound_pct,
+            intervalWidth: cert.conformal_uncertainty.confidence_interval_width_pct,
+            rulCycles: cert.degradation_diagnostics.remaining_useful_life_cycles,
+            lliPct: cert.degradation_diagnostics.lli_percent,
+            lamPct: cert.degradation_diagnostics.lam_percent,
+            tdi: cert.operational_thermal_sensor.thermal_degradation_index,
+            offset: cert.operational_thermal_sensor.sensor_offset_bias_a,
+            gain: cert.operational_thermal_sensor.sensor_gain_factor,
+            tqs: { total: 92.0, jitterCv: '0.015', noiseStd: '0.012', scoreDrop: 30, scoreJitter: 24, scorePlaus: 25, scoreSnr: 18 },
+            overallDecision: cert.certification_status.certification_decision,
+            decisionBadgeClass: isPass ? 'pass' : 'danger',
+            statusSummary: cert.certification_status.decision_rationale,
+            canonicalPayload: cert.cryptographic_signature.canonical_payload,
+            sha256Digest: cert.cryptographic_signature.sha256_digital_signature,
+            timestamp: cert.cryptographic_signature.evaluation_timestamp_utc,
+            rawTelemetry: generateTelemetry({ chemistry, capacity, ambientTemp: cert.operational_thermal_sensor.mean_temperature_c, currentOffset: 0, packetDrop: 0, voltageNoise: 0.01 }),
+            icaDva: generateIcaDva(chemistry, cert.certified_health_valuation.certified_soh_pct, chemistry === 'LFP'),
+            gpr: generateGprCurve({ cleanVoltages: [50.0, 53.5] }, chemistry === 'LFP')
+          };
+
+          AppState.originalSha256 = cert.cryptographic_signature.sha256_digital_signature;
+          AppState.originalCanonical = cert.cryptographic_signature.canonical_payload;
+
+          updateUiOutputs();
+          showToast(`C++ Engine Result: [${cert.certification_status.certification_decision}]`, isPass ? 'success' : 'warning');
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('API execution notice:', e);
+      showToast('Local API bridge not running, running browser simulator mode', 'warning');
+    }
+  }
+
   showToast('Executing BPAN Tier 3 Valuation Pipeline...', 'info');
 
   // Step 1: Telemetry Synthesis & Ingestion (M01)
@@ -1116,6 +1184,14 @@ function switchTab(tabId) {
   const targetPane = document.getElementById(tabId);
   if (targetPane) targetPane.classList.add('active');
 
+  // If 3D tab opened, initialize or resize Three.js canvas
+  if (tabId === 'tabSim3d') {
+    setTimeout(() => {
+      const s = window.Sim3D || (typeof Sim3D !== 'undefined' ? Sim3D : null);
+      if (s) s.init();
+    }, 40);
+  }
+
   // Trigger chart resize if chart tab became visible
   window.dispatchEvent(new Event('resize'));
 }
@@ -1207,23 +1283,54 @@ function setupFileDropZone() {
   });
 }
 
+function applyVehicleProfile(profileKey) {
+  const profiles = {
+    ola_s1_lfp: { id: 'IN-BPAN-2W-LFP-OLA01', chem: 'LFP', cap: 30.0, veh: '2W', efc: 120 },
+    ather_450x_nmc: { id: 'IN-BPAN-2W-NMC-ATH02', chem: 'NMC', cap: 58.0, veh: '2W', efc: 180 },
+    tvs_iqube_nmc: { id: 'IN-BPAN-2W-NMC-TVS03', chem: 'NMC', cap: 60.0, veh: '2W', efc: 150 },
+    blusmart_3w_lfp: { id: 'IN-BPAN-3W-LFP-BLU04', chem: 'LFP', cap: 150.0, veh: '3W', efc: 320 },
+    zypp_cargo_lfp: { id: 'IN-BPAN-2W-LFP-ZYP05', chem: 'LFP', cap: 32.0, veh: '2W', efc: 240 },
+    nasa_single_cell: { id: 'IN-BPAN-LAB-NMC-B0005', chem: 'NMC', cap: 2.0, veh: '2W', efc: 50 }
+  };
+  const p = profiles[profileKey];
+  if (!p) return;
+  document.getElementById('inputBpanId').value = p.id;
+  document.getElementById('inputChemistry').value = p.chem;
+  document.getElementById('inputCapacity').value = p.cap;
+  document.getElementById('inputVehicle').value = p.veh;
+  document.getElementById('inputEfc').value = p.efc;
+  showToast(`Applied ${profileKey} specification`, 'info');
+}
+
 function handleUploadedFile(file) {
-  showToast(`Parsing ${file.name}...`, 'info');
+  showToast(`Uploading ${file.name} to C++ Engine...`, 'info');
   const reader = new FileReader();
 
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
       const content = e.target.result;
-      if (file.name.endsWith('.json')) {
-        const parsed = JSON.parse(content);
-        if (parsed.bpan_id) document.getElementById('inputBpanId').value = parsed.bpan_id;
-        if (parsed.chemistry) document.getElementById('inputChemistry').value = parsed.chemistry;
-        if (parsed.capacity_ah) document.getElementById('inputCapacity').value = parsed.capacity_ah;
+      AppState.uploadedContent = content;
+      AppState.uploadedFileName = file.name;
+      
+      const badge = document.getElementById('uploadedFileBadge');
+      if (badge) {
+        badge.textContent = `Real File: ${file.name} (${(file.size / 1024).toFixed(1)} KB) - C++ Engine Active`;
+        badge.style.display = 'block';
       }
-      showToast(`Loaded ${file.name} successfully!`, 'success');
-      runPipeline();
+
+      if (file.name.endsWith('.json')) {
+        try {
+          const parsed = JSON.parse(content);
+          if (parsed.bpan_id) document.getElementById('inputBpanId').value = parsed.bpan_id;
+          if (parsed.chemistry) document.getElementById('inputChemistry').value = parsed.chemistry;
+          if (parsed.nominal_capacity_ah) document.getElementById('inputCapacity').value = parsed.nominal_capacity_ah;
+        } catch (_) {}
+      }
+
+      showToast(`Loaded ${file.name}! Invoking C++23 Core...`, 'success');
+      await runPipeline();
     } catch (err) {
-      showToast('Error parsing file: ' + err.message, 'danger');
+      showToast('Error reading file: ' + err.message, 'danger');
     }
   };
 

@@ -86,6 +86,15 @@ struct CalibrationReport {
 [[nodiscard]] std::vector<OcvPoint> getDefaultLfp16sOcvTable();
 
 /**
+ * @brief Generate scaled Open Circuit Voltage table for any cell chemistry and series cell count.
+ *
+ * @param chemistry "LFP" or "NMC".
+ * @param series_cells Number of cells in series (e.g. 16 for 16S LFP, 14 for 14S NMC, 1 for cell).
+ * @return Vector of OcvPoint pairs sorted monotonically by voltage and SoC.
+ */
+[[nodiscard]] std::vector<OcvPoint> getScaledOcvTable(std::string_view chemistry, int series_cells);
+
+/**
  * @brief Load Open Circuit Voltage table from a reference CSV file.
  * Expects CSV format with columns: soc, cell_ocv_v [, pack_16s_ocv_v].
  *

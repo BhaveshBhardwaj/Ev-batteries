@@ -1,4 +1,5 @@
 #include <ev/battery/uncertainty/uncertainty.hpp>
+#include <ev/battery/estimation/trained_model.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -9,20 +10,9 @@
 namespace ev::battery::uncertainty {
 
 ConformalCalibrationData getDefaultCalibrationData() {
-    // 100 empirical normalized absolute residuals from holdout NASA B0005-B0056 and LFP packs
-    // Mean ~ 1.05%, 90th percentile ~ 1.70%, 95th percentile ~ 2.15%
-    std::vector<double> scores = {
-        0.12, 0.18, 0.22, 0.25, 0.29, 0.31, 0.35, 0.38, 0.41, 0.44,
-        0.47, 0.50, 0.52, 0.55, 0.58, 0.61, 0.63, 0.66, 0.68, 0.71,
-        0.73, 0.75, 0.77, 0.79, 0.81, 0.83, 0.85, 0.87, 0.89, 0.91,
-        0.93, 0.95, 0.97, 0.98, 1.00, 1.02, 1.04, 1.05, 1.07, 1.09,
-        1.11, 1.12, 1.14, 1.16, 1.18, 1.20, 1.22, 1.23, 1.25, 1.27,
-        1.29, 1.31, 1.33, 1.35, 1.37, 1.39, 1.41, 1.43, 1.45, 1.47,
-        1.49, 1.51, 1.53, 1.55, 1.57, 1.59, 1.61, 1.63, 1.65, 1.67,
-        1.69, 1.71, 1.73, 1.75, 1.78, 1.80, 1.83, 1.85, 1.88, 1.90,
-        1.93, 1.96, 1.99, 2.02, 2.05, 2.08, 2.11, 2.15, 2.18, 2.22,
-        2.26, 2.30, 2.35, 2.40, 2.45, 2.52, 2.60, 2.70, 2.85, 3.10
-    };
+    // Empirical normalized absolute residuals from holdout NASA B0005-B0018 and LFP cycles
+    const auto& empirical = estimation::getEmpiricalConformalResiduals();
+    std::vector<double> scores(empirical.begin(), empirical.end());
     return ConformalCalibrationData{.non_conformity_scores = std::move(scores)};
 }
 

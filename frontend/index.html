@@ -14,7 +14,453 @@
   <!-- Chart.js for High-Resolution Interactive Plots -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="index.css?v=2.7">
+
+  <style>
+    /* Critical 3D Viewport & HUD Styles (Guaranteed Loading) */
+    .tab-btn.highlight-3d {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      color: #38bdf8;
+      border-color: #0284c7;
+      font-weight: 700;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+    .tab-btn.highlight-3d.active {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #ffffff;
+      border-color: #38bdf8;
+      box-shadow: 0 0 15px rgba(37, 99, 235, 0.4);
+    }
+    .main-layout {
+      grid-template-columns: 360px minmax(0, 1fr) !important;
+    }
+    .dashboard-content {
+      min-width: 0 !important;
+      max-width: 100% !important;
+    }
+    .sim3d-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .sim-factor-bar {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 0.65rem 1rem;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+    }
+    .factor-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .factor-label {
+      font-weight: 600;
+      color: #475569;
+    }
+    .factor-val {
+      font-weight: 700;
+      color: #0284c7;
+      font-family: monospace;
+      min-width: 48px;
+    }
+    .sim3d-split-stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: 1.25rem;
+      align-items: stretch;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      .sim3d-split-stage {
+        grid-template-columns: 1fr;
+      }
+    }
+    .sim-docked-console {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      max-height: 520px;
+      height: 520px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 6px;
+    }
+    .sim-docked-console::-webkit-scrollbar {
+      width: 6px;
+    }
+    .sim-docked-console::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .sim-docked-console::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 4px;
+    }
+    .sim-docked-console::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+    .sim-console-tabs {
+      display: flex;
+      gap: 0.35rem;
+      background: #f1f5f9;
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .sim-console-tab-btn {
+      flex: 1;
+      padding: 0.35rem 0.5rem;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      text-align: center;
+    }
+    .sim-console-tab-btn:hover {
+      color: #0f172a;
+      background: rgba(255, 255, 255, 0.7);
+    }
+    .sim-console-tab-btn.active {
+      background: #ffffff;
+      color: #2563eb;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      font-weight: 700;
+    }
+    .sim-console-pane {
+      display: none;
+      flex-direction: column;
+      gap: 0.65rem;
+      width: 100%;
+    }
+    .sim-console-pane.active {
+      display: flex;
+    }
+    .metric-tiles-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+      width: 100%;
+    }
+    .metric-tile {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 0.55rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      min-width: 0;
+    }
+    .metric-tile:hover {
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+    }
+    .metric-tile.full-width {
+      grid-column: 1 / -1;
+    }
+    .metric-tile-title {
+      font-size: 0.69rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #64748b;
+      margin-bottom: 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .metric-tile-value {
+      font-size: 0.96rem;
+      font-weight: 800;
+      font-family: var(--font-mono, monospace);
+      color: #0f172a;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .metric-tile-value.cyan { color: #0284c7; }
+    .metric-tile-value.emerald { color: #059669; }
+    .metric-tile-value.amber { color: #d97706; }
+    .metric-tile-value.rose { color: #e11d48; }
+    .metric-tile-value.purple { color: #7c3aed; }
+    .metric-tile-sub {
+      font-size: 0.68rem;
+      color: #94a3b8;
+      font-weight: 500;
+      margin-top: 0.2rem;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .sim-steer-btn {
+      padding: 0.25rem 0.55rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: #1e293b;
+      transition: all 0.15s ease;
+    }
+    .sim-steer-btn:hover {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+    }
+    .sim-steer-btn:active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #1d4ed8;
+    }
+    }
+    .sim3d-toolbar {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .sim-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .sim-btn-group.right {
+      margin-left: auto;
+    }
+    .toolbar-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-right: 0.25rem;
+    }
+    .sim-drive-btn {
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .sim-drive-btn:hover {
+      background: #e2e8f0;
+    }
+    .sim-drive-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #1d4ed8;
+      box-shadow: 0 0 10px rgba(37, 99, 235, 0.3);
+    }
+    .sim-drive-btn.warn.active {
+      background: #d97706;
+      border-color: #b45309;
+      box-shadow: 0 0 10px rgba(217, 119, 6, 0.3);
+    }
+    .sim-drive-btn.auto.active {
+      background: #7c3aed;
+      border-color: #6d28d9;
+      box-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
+    }
+    .sim-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #475569;
+    }
+    .sim-select-wrap select {
+      padding: 0.4rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+    .sim-camera-group {
+      display: flex;
+      background: #f1f5f9;
+      padding: 2px;
+      border-radius: 8px;
+    }
+    .sim-cam-btn {
+      padding: 0.35rem 0.65rem;
+      border: none;
+      background: transparent;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #475569;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .sim-cam-btn.active {
+      background: #ffffff;
+      color: #2563eb;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .btn-certify-sim {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+      transition: all 0.2s ease;
+    }
+    .btn-certify-sim:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);
+    }
+    .sim3d-viewport-container {
+      width: 100%;
+      height: 520px;
+      background: #0a0f1d;
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
+      border: 1px solid #1e293b;
+    }
+    .sim3d-viewport-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .hud-mission-status {
+      align-self: flex-start;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .hud-thermal-box {
+      position: absolute;
+      top: 1.25rem;
+      right: 1.25rem;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.65rem 1rem;
+      border-radius: 10px;
+      display: flex;
+      gap: 1.25rem;
+    }
+    .hud-speedometer {
+      position: absolute;
+      bottom: 1.25rem;
+      left: 1.25rem;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 1rem 1.4rem;
+      border-radius: 14px;
+      min-width: 140px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .hud-battery-gauge {
+      position: absolute;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      padding: 0.85rem 1.25rem;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .soc-circle-wrap {
+      position: relative;
+      width: 72px;
+      height: 72px;
+    }
+    .soc-svg {
+      width: 72px;
+      height: 72px;
+      display: block;
+      transform: rotate(-90deg);
+    }
+    .soc-bg {
+      fill: none !important;
+      stroke: rgba(255, 255, 255, 0.12);
+      stroke-width: 8;
+    }
+    .soc-bar {
+      fill: none !important;
+      stroke: #10b981;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 251.32;
+      stroke-dashoffset: 120;
+    }
+    .soc-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #f8fafc;
+      font-family: monospace;
+    }
+  </style>
 </head>
 <body class="light-theme">
 
@@ -101,13 +547,25 @@
             <div class="drop-icon">📤</div>
             <div class="drop-text">Drag & drop <strong>.csv</strong> or <strong>.json</strong></div>
             <button type="button" class="btn-secondary" id="browseFileBtn" onclick="document.getElementById('fileInput').click()">Browse Telemetry File</button>
+            <div id="uploadedFileBadge" style="display:none; margin-top:8px; padding:6px 10px; background:#e0f2fe; color:#0369a1; border-radius:6px; font-size:0.8rem; font-weight:600; text-align:center;"></div>
           </div>
 
           <!-- Pack Identification Form -->
           <form class="metadata-form" id="metadataForm" onsubmit="event.preventDefault(); runPipeline();">
             <div class="form-row">
+              <label for="inputVehicleProfile">Indian Vehicle Profile</label>
+              <select id="inputVehicleProfile" onchange="applyVehicleProfile(this.value)">
+                <option value="ola_s1_lfp" selected>Ola S1 Pro / Air (16S 30Ah LFP • 51.2V)</option>
+                <option value="ather_450x_nmc">Ather 450X Gen 3 (14S 58Ah NMC • 51.8V)</option>
+                <option value="tvs_iqube_nmc">TVS iQube (14S 60Ah NMC • 50.4V)</option>
+                <option value="blusmart_3w_lfp">BluSmart 3W / Mahindra Treo (16S 150Ah LFP)</option>
+                <option value="zypp_cargo_lfp">Zypp Cargo Delivery (16S 32Ah LFP • 51.2V)</option>
+                <option value="nasa_single_cell">NASA Laboratory Cell (1S 2.0Ah NMC • 4.2V)</option>
+              </select>
+            </div>
+            <div class="form-row">
               <label for="inputBpanId">BPAN ID</label>
-              <input type="text" id="inputBpanId" value="IN-BPAN-2W-LFP-00941" required>
+              <input type="text" id="inputBpanId" value="IN-BPAN-2W-LFP-OLA01" required>
             </div>
             <div class="form-row two-col">
               <div>
@@ -224,7 +682,8 @@
 
       <!-- Navigation Tabs for Feature Deep-Dives -->
       <nav class="feature-tabs" id="featureTabs">
-        <button class="tab-btn active" id="tabPassportBtn" onclick="switchTab('tabPassport')">BPAN Tier 3 Passport</button>
+        <button class="tab-btn highlight-3d active" id="tabSim3dBtn" onclick="switchTab('tabSim3d')">🏎️ 3D Drive & Live Telematics</button>
+        <button class="tab-btn" id="tabPassportBtn" onclick="switchTab('tabPassport')">BPAN Tier 3 Passport</button>
         <button class="tab-btn" id="tabIcaDvaBtn" onclick="switchTab('tabIcaDva')">Electrochemical ICA / DVA (M05, M06)</button>
         <button class="tab-btn" id="tabGprBtn" onclick="switchTab('tabGpr')">Partial Charge GPR (M10)</button>
         <button class="tab-btn" id="tabQualityBtn" onclick="switchTab('tabQuality')">Telemetry Quality & Gate 1 (M12)</button>
@@ -232,8 +691,402 @@
         <button class="tab-btn" id="tabThermalBtn" onclick="switchTab('tabThermal')">Thermal Degradation (M14)</button>
       </nav>
 
+      <!-- Tab 0: 3D Driving Simulation & Live Telematics Engine -->
+      <section class="tab-pane active" id="tabSim3d">
+        <div class="sim3d-wrapper">
+          <!-- 3D Controls Ribbon -->
+          <div class="sim3d-toolbar">
+            <div class="sim-btn-group">
+              <span class="toolbar-label">Vehicle Control:</span>
+              <button class="sim-drive-btn" data-mode="ACCEL" onclick="Sim3D.setDriveMode('ACCEL')" title="Accelerate [W]">⚡ Throttle (W)</button>
+              <button class="sim-drive-btn active" data-mode="CRUISE" onclick="Sim3D.setDriveMode('CRUISE')" title="Cruise 50 km/h [Space]">🚗 Cruise (Space)</button>
+              <button class="sim-drive-btn" data-mode="REGEN" onclick="Sim3D.setDriveMode('REGEN')" title="Regenerative Braking [S]">🛑 Regen (S)</button>
+              <button class="sim-drive-btn warn" data-mode="CHARGING" onclick="Sim3D.setDriveMode('CHARGING')" title="Fast Charging Dock [C]">🔌 Dock Fast Charger (C)</button>
+              <button class="sim-drive-btn auto" data-mode="AUTO" onclick="Sim3D.setDriveMode('AUTO')" title="Autonomous Mission Loop [A]">🤖 Auto Mission Cycle (A)</button>
+              <button class="sim-drive-btn reset" onclick="Sim3D.resetSimulation()" title="Reset [R]">↺ Reset</button>
+            </div>
+
+            <div class="sim-btn-group right">
+              <div class="sim-select-wrap">
+                <label for="simVehicleSelect">Vehicle:</label>
+                <select id="simVehicleSelect" onchange="Sim3D.setVehicleType(this.value)">
+                  <option value="ola_s1_lfp" selected>Ola S1 Pro (16S LFP)</option>
+                  <option value="ather_450x_nmc">Ather 450X (14S NMC)</option>
+                  <option value="blusmart_3w_lfp">BluSmart 3W (150Ah LFP)</option>
+                  <option value="cyber_gt_ev">HyperDrive EV (355V NMC)</option>
+                </select>
+              </div>
+
+              <div class="sim-camera-group">
+                <button class="sim-cam-btn active" data-cam="chase" onclick="Sim3D.setCameraMode('chase')" title="Chase Camera">🎥 Chase</button>
+                <button class="sim-cam-btn" data-cam="battery" onclick="Sim3D.setCameraMode('battery')" title="Battery X-Ray Inspection">🔋 Battery</button>
+                <button class="sim-cam-btn" data-cam="hood" onclick="Sim3D.setCameraMode('hood')" title="Cockpit Hood">🏎️ Hood</button>
+              </div>
+
+              <button class="btn-certify-sim" onclick="Sim3D.triggerRealEngineCertification()">
+                ⚡ Trigger BPAN Seal
+              </button>
+            </div>
+          </div>
+
+          <!-- Real-World Physical Factors & Road Conditions Toolbar -->
+          <div class="sim-factor-bar">
+            <div class="factor-item">
+              <span class="factor-label">Rider Weight:</span>
+              <input type="range" id="sliderRiderWeight" min="45" max="130" step="5" value="75" oninput="Sim3D.setRiderWeight(this.value)" style="width: 75px;">
+              <span class="factor-val" id="valRiderWeight">75 kg</span>
+            </div>
+
+            <div class="factor-item">
+              <span class="factor-label">Cargo / Pillion:</span>
+              <input type="range" id="sliderCargoWeight" min="0" max="150" step="5" value="25" oninput="Sim3D.setCargoWeight(this.value)" style="width: 75px;">
+              <span class="factor-val" id="valCargoWeight">25 kg</span>
+            </div>
+
+            <div class="factor-item">
+              <span class="factor-label">Potholes:</span>
+              <select onchange="Sim3D.setPotholeSeverity(this.value)" style="padding: 2px 6px; border-radius: 6px; font-size: 0.78rem; border: 1px solid #cbd5e1;">
+                <option value="none">Smooth (Crr=0.012)</option>
+                <option value="moderate" selected>Urban (Crr=0.018)</option>
+                <option value="extreme">Monsoon (Crr=0.028)</option>
+              </select>
+            </div>
+
+            <div class="factor-item">
+              <span class="factor-label">Turns / Route:</span>
+              <select onchange="Sim3D.setRoadCurveStyle(this.value)" style="padding: 2px 6px; border-radius: 6px; font-size: 0.78rem; border: 1px solid #cbd5e1;">
+                <option value="straight">Straight</option>
+                <option value="city" selected>City Turns</option>
+                <option value="ghats">Ghats Hairpins</option>
+              </select>
+            </div>
+
+            <div class="factor-item">
+              <span class="factor-label">Incline / Grade:</span>
+              <select onchange="Sim3D.setRoadGrade(this.value)" style="padding: 2px 6px; border-radius: 6px; font-size: 0.78rem; border: 1px solid #cbd5e1;">
+                <option value="0" selected>Flat (0%)</option>
+                <option value="4">Flyover (+4%)</option>
+                <option value="8">Steep Overpass (+8%)</option>
+                <option value="-5">Downhill Regen (-5%)</option>
+              </select>
+            </div>
+
+            <div class="factor-item">
+              <span class="factor-label">Cabin AC / Aux:</span>
+              <select onchange="Sim3D.setAuxPower(this.value)" style="padding: 2px 6px; border-radius: 6px; font-size: 0.78rem; border: 1px solid #cbd5e1;">
+                <option value="50">Off (50W)</option>
+                <option value="250" selected>Eco AC (250W)</option>
+                <option value="750">Summer AC (750W)</option>
+              </select>
+            </div>
+
+            <div class="factor-item">
+              <span class="factor-label">Manual Steer:</span>
+              <button class="sim-steer-btn" onmousedown="Sim3D.steerLeft()" onmouseup="Sim3D.steerCenter()" title="Steer Left [A]">◀ Left (A)</button>
+              <button class="sim-steer-btn" onclick="Sim3D.steerCenter()" title="Center">Center</button>
+              <button class="sim-steer-btn" onmousedown="Sim3D.steerRight()" onmouseup="Sim3D.steerCenter()" title="Steer Right [D]">Right (D) ▶</button>
+            </div>
+          </div>
+
+          <!-- Dual-Pane Stage: 3D Viewport on Left + Analytical Inspector Console on Right -->
+          <div class="sim3d-split-stage">
+            <!-- Left Pane: 3D Simulation Viewport with Holographic HUD -->
+            <div class="sim3d-viewport-container" id="sim3dViewport">
+              <div class="hud-layer">
+                <!-- Top Left: Mission Status Pill -->
+                <div class="hud-mission-status" id="hudMissionStatus">
+                  <span class="badge-pulse success"></span> Cruising at 50 km/h
+                </div>
+
+                <!-- Top Right: Live Power & Thermal Indicator -->
+                <div class="hud-thermal-box">
+                  <div class="hud-stat-item">
+                    <span class="label">POWER</span>
+                    <span class="val" id="hudPower">0.88 kW</span>
+                  </div>
+                  <div class="hud-stat-item">
+                    <span class="label">PACK TEMP</span>
+                    <span class="val" id="hudTemp">36.2 °C</span>
+                  </div>
+                </div>
+
+                <!-- Middle HUD: Air Drag & Pothole Shock Meter -->
+                <div class="hud-dynamics-strip" style="position: absolute; top: 4.2rem; left: 1.25rem; display: flex; gap: 0.6rem;">
+                  <div style="background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(6px); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 4px 10px; font-size: 0.75rem; color: #94a3b8;">
+                    AIR DRAG: <strong id="hudAeroForce" style="color: #38bdf8; font-family: monospace;">32.5 N (450 W)</strong>
+                  </div>
+                  <div style="background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(6px); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 4px 10px; font-size: 0.75rem; color: #94a3b8;">
+                    POTHOLE SHOCK: <strong id="hudPotholeShock" style="color: #ef4444; font-family: monospace;">1.00 G</strong>
+                  </div>
+                </div>
+
+                <!-- Bottom Left: Speedometer Gauge -->
+                <div class="hud-speedometer">
+                  <div class="speed-num" id="hudSpeed">50</div>
+                  <div class="speed-unit">KM / H</div>
+                  <div class="speed-bar-track">
+                    <div class="speed-bar-fill" id="hudSpeedBar" style="width: 45%;"></div>
+                  </div>
+                </div>
+
+                <!-- Bottom Right: Circular SOC & Terminal V/I -->
+                <div class="hud-battery-gauge">
+                  <div class="soc-circle-wrap" style="position: relative; width: 72px; height: 72px; min-width: 72px;">
+                    <svg class="soc-svg" width="72" height="72" viewBox="0 0 100 100" style="width: 72px; height: 72px; display: block;">
+                      <circle class="soc-bg" cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="8" />
+                      <circle class="soc-bar" id="hudSocRing" cx="50" cy="50" r="40" fill="none" stroke="#10b981" stroke-width="8" stroke-linecap="round" stroke-dasharray="251.32" stroke-dashoffset="120" />
+                    </svg>
+                    <div class="soc-text" id="hudSoc">52%</div>
+                  </div>
+                  <div class="vi-readings">
+                    <div class="vi-item">
+                      <span class="vi-label">VOLTAGE</span>
+                      <span class="vi-val" id="hudVolt">53.3 V</span>
+                    </div>
+                    <div class="vi-item">
+                      <span class="vi-label">CURRENT</span>
+                      <span class="vi-val" id="hudCurr">-16.5 A</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Pane: Real-Time Analytical Inspector Console -->
+            <div class="sim-docked-console">
+              
+              <!-- Console Sub-Tab Bar -->
+              <div class="sim-console-tabs">
+                <button class="sim-console-tab-btn active" id="cTabBtnAll" onclick="Sim3D.switchConsoleTab('all')">📊 All Summary</button>
+                <button class="sim-console-tab-btn" id="cTabBtnDynamics" onclick="Sim3D.switchConsoleTab('dynamics')">🌪️ Real Dynamics</button>
+                <button class="sim-console-tab-btn" id="cTabBtnDiagnostics" onclick="Sim3D.switchConsoleTab('diagnostics')">🛡️ Gate 1 & 2</button>
+                <button class="sim-console-tab-btn" id="cTabBtnValuation" onclick="Sim3D.switchConsoleTab('valuation')">⚡ SOH & Gate 3</button>
+                <button class="sim-console-tab-btn" id="cTabBtnPassport" onclick="Sim3D.switchConsoleTab('passport')">🏛️ Passport</button>
+              </div>
+
+              <!-- PANE 1: ALL SUMMARY (Default View - Fits perfectly without clipping!) -->
+              <div class="sim-console-pane active" id="cPaneAll">
+                <div class="metric-tiles-grid">
+                  <!-- 1. Total Mass -->
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">⚖️ Total Mass (F=ma)</div>
+                    <div class="metric-tile-value cyan" id="tileMassVal">225 kg</div>
+                    <div class="metric-tile-sub" id="tileMassSub">Curb 125kg + Load 100kg</div>
+                  </div>
+                  <!-- 2. Aero Drag -->
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">🌪️ Air Drag Loss</div>
+                    <div class="metric-tile-value cyan" id="tileAeroVal">32.5 N</div>
+                    <div class="metric-tile-sub" id="tileAeroSub">450 W @ 50 km/h (Cd=0.38)</div>
+                  </div>
+                  <!-- 3. Road Incline & Turning -->
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">⛰️ Slope & Turns</div>
+                    <div class="metric-tile-value amber" id="tileTurnSlopeVal">0% / 0.15 G</div>
+                    <div class="metric-tile-sub" id="tileTurnSlopeSub">Incline: 0.0 N | Turn: 12.4 N</div>
+                  </div>
+                  <!-- 4. Pothole Shock -->
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">🕳️ Suspension Shock</div>
+                    <div class="metric-tile-value rose" id="tileShockVal">1.00 G</div>
+                    <div class="metric-tile-sub" id="tileShockSub">Bounce: 0.0 cm | Crr: 0.018</div>
+                  </div>
+                  <!-- 5. Hampel Cleaned Voltage -->
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">🛡️ Cleaned Voltage</div>
+                    <div class="metric-tile-value emerald" id="tileCleanVVal">53.28 V</div>
+                    <div class="metric-tile-sub" id="tileCleanVSub">Raw: 53.28 V (Pothole jitter stripped)</div>
+                  </div>
+                  <!-- 6. Gate 1 TQS Score -->
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">📶 Gate 1 TQS Score</div>
+                    <div class="metric-tile-value emerald" id="tileTqsVal">96.4 / 100</div>
+                    <div class="metric-tile-sub" id="tileTqsSub">PASS (Dropout: 0%, Drift: 0.08A)</div>
+                  </div>
+                  <!-- 7. Certified SOH % -->
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">⚡ Certified State-of-Health</div>
+                    <div class="metric-tile-value purple" id="tileSohVal">92.4% SoH</div>
+                    <div class="metric-tile-sub" id="tileSohSub">Usable: 27.7 Ah (Rated: 30.0 Ah)</div>
+                  </div>
+                  <!-- 8. Conformal Band & Gate 3 -->
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">🎯 90% Conformal Band</div>
+                    <div class="metric-tile-value purple" id="tileConfVal">[89.9%, 94.8%]</div>
+                    <div class="metric-tile-sub" id="tileConfSub">Width: ±2.45% (Gate 3 PASSED)</div>
+                  </div>
+                  <!-- 9. Quick BPAN Seal Status Bar -->
+                  <div class="metric-tile full-width" style="background: #f8fafc; border: 1px dashed #cbd5e1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #475569;">NITI AAYOG BPAN REGISTRY STATUS</div>
+                        <div style="font-size: 0.85rem; font-weight: 700; color: #059669;" id="tilePassportStatus">Ready to Certify • Tier 3 Standard</div>
+                      </div>
+                      <button class="btn-certify-sim" onclick="Sim3D.triggerRealEngineCertification()" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+                        ⚡ Seal Passport
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PANE 2: REAL DYNAMICS DECOMPOSITION -->
+              <div class="sim-console-pane" id="cPaneDynamics">
+                <div class="metric-tiles-grid">
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Curb Weight</div>
+                    <div class="metric-tile-value" id="dispCurbWeight">125 kg</div>
+                    <div class="metric-tile-sub">Chassis + Battery + Powertrain</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Payload Mass</div>
+                    <div class="metric-tile-value" id="dispPayloadMass">100 kg</div>
+                    <div class="metric-tile-sub" id="dispPayloadBreakdown">Rider 75kg + Cargo 25kg</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Aero Drag Force</div>
+                    <div class="metric-tile-value cyan" id="dispAeroForceN">32.5 N</div>
+                    <div class="metric-tile-sub" id="dispAeroLossW">Power: 450 W (Cd=0.38)</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Air Density</div>
+                    <div class="metric-tile-value cyan" id="dispAirDensity">1.14 kg/m³</div>
+                    <div class="metric-tile-sub" id="dispAmbientTempSub">At Ambient 36.2 °C</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Rolling Resistance</div>
+                    <div class="metric-tile-value" id="dispRollForceN">39.7 N</div>
+                    <div class="metric-tile-sub" id="dispCrrSub">Crr = 0.018 (Urban Asphalt)</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Turn Centrifugal Load</div>
+                    <div class="metric-tile-value amber" id="dispCorneringForceN">12.4 N</div>
+                    <div class="metric-tile-sub" id="dispLateralGSub">Lateral Accel: 0.15 G</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Road Incline Grade</div>
+                    <div class="metric-tile-value amber" id="dispGradeForceN">0.0 N (0%)</div>
+                    <div class="metric-tile-sub" id="dispGradePowerSub">Grade Power: 0 W</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Cabin AC & Aux Draw</div>
+                    <div class="metric-tile-value amber" id="dispAuxPowerVal">250 W</div>
+                    <div class="metric-tile-sub" id="dispAuxCurrentSub">Aux Current: 4.7 A</div>
+                  </div>
+                  <div class="metric-tile full-width">
+                    <div class="metric-tile-title">Damped Suspension Kinematics (Potholes & Bumps)</div>
+                    <div class="metric-tile-value rose" id="dispSuspensionVal">1.00 G (Deflection: 0.0 cm)</div>
+                    <div class="metric-tile-sub">m·z'' + c·z' + k·z = F(t) | Spring k=22 kN/m, Damping c=1.4 kNs/m</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PANE 3: GATE 1 & 2 TELEMATICS DIAGNOSTICS -->
+              <div class="sim-console-pane" id="cPaneDiagnostics">
+                <div class="metric-tiles-grid">
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Raw Sensor Voltage</div>
+                    <div class="metric-tile-value rose" id="dispDiagRawV">53.28 V</div>
+                    <div class="metric-tile-sub">Contains road shock contact jitter</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Hampel Cleaned Voltage</div>
+                    <div class="metric-tile-value emerald" id="dispDiagCleanV">53.28 V</div>
+                    <div class="metric-tile-sub">Median filtered (k=3 window)</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Telematics Quality (TQS)</div>
+                    <div class="metric-tile-value emerald" id="dispDiagTqs">96.4 / 100</div>
+                    <div class="metric-tile-sub">Gate 1: PASS (Threshold >= 85.0)</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Current Sensor Bias Drift</div>
+                    <div class="metric-tile-value emerald" id="dispDiagSensorOffset">0.08 A</div>
+                    <div class="metric-tile-sub">Gate 2: PASS (Within ±1.5A limit)</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Sampling Jitter (CV)</div>
+                    <div class="metric-tile-value emerald" id="dispDiagJitter">1.2%</div>
+                    <div class="metric-tile-sub">Standard 1 Hz cadence</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Sensor Gain Factor</div>
+                    <div class="metric-tile-value emerald" id="dispDiagSensorGain">1.002x</div>
+                    <div class="metric-tile-sub">Coulomb calibration factor</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PANE 4: GATE 3 SOH VALUATION -->
+              <div class="sim-console-pane" id="cPaneValuation">
+                <div class="metric-tiles-grid">
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Certified State-of-Health</div>
+                    <div class="metric-tile-value purple" id="dispValSoh">92.4%</div>
+                    <div class="metric-tile-sub">Multimodal ML + ICA Model</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Usable Capacity</div>
+                    <div class="metric-tile-value purple" id="dispValCap">27.72 Ah</div>
+                    <div class="metric-tile-sub">Rated Nameplate: 30.00 Ah</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">90% Conformal Band</div>
+                    <div class="metric-tile-value purple" id="dispValConfBand">[89.9%, 94.8%]</div>
+                    <div class="metric-tile-sub">Interval Width: 4.90% (Gate 3 PASS)</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Remaining Useful Life (RUL)</div>
+                    <div class="metric-tile-value" id="dispValRul">1,480 Cycles</div>
+                    <div class="metric-tile-sub">To 70.0% Commercial EoL</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Loss of Active Material (LAM)</div>
+                    <div class="metric-tile-value" id="dispValLam">7.6%</div>
+                    <div class="metric-tile-sub">Cathode peak height fade</div>
+                  </div>
+                  <div class="metric-tile">
+                    <div class="metric-tile-title">Loss of Li Inventory (LLI)</div>
+                    <div class="metric-tile-value" id="dispValLli">7.6%</div>
+                    <div class="metric-tile-sub">SEI layer growth & phase shift</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PANE 5: BPAN TIER 3 PASSPORT -->
+              <div class="sim-console-pane" id="cPanePassport">
+                <div id="simPassportDisplay" class="sim-passport-box" style="padding: 0.65rem;">
+                  <div class="sim-cert-placeholder" style="padding: 1.25rem 0.5rem; text-align: center;">
+                    <div style="font-size: 1.5rem; margin-bottom: 0.4rem;">🏛️</div>
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin-bottom: 0.3rem;">Digital Battery Passport Registry</h4>
+                    <p style="font-size: 0.78rem; color: #64748b; margin-bottom: 0.8rem;">Click below to sign the live telemetry through the compiled C++23 native valuation engine with a FIPS 180-2 SHA-256 seal.</p>
+                    <button class="btn-certify-sim" onclick="Sim3D.triggerRealEngineCertification()">
+                      ⚡ Execute C++ BPAN Certification
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Bottom Full-Width Rolling Oscilloscope -->
+          <div class="panel-card sim-panel">
+            <div class="card-header">
+              <span class="card-icon">📈</span>
+              <h3>Live Telemetry Oscilloscope (Raw vs. Hampel-Cleaned Voltage & Pack Current Load)</h3>
+            </div>
+            <div class="card-body">
+              <div class="chart-container" style="height: 230px;">
+                <canvas id="simOscilloscopeChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Tab 1: BPAN Tier 3 Official Passport & Cryptographic Seal -->
-      <section class="tab-pane active" id="tabPassport">
+      <section class="tab-pane" id="tabPassport">
         <div class="passport-grid">
           
           <!-- Official Certificate Card -->
@@ -654,6 +1507,8 @@
   <!-- Notification Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js"></script>
+  <script src="three.min.js"></script>
+  <script src="sim3d.js?v=2.8"></script>
+  <script src="app.js?v=2.8"></script>
 </body>
 </html>

@@ -114,13 +114,13 @@ common::Result<common::InternalTimeSeries> parseCsv(
         if (!header_processed) {
             for (size_t i = 0; i < tokens.size(); ++i) {
                 std::string col = toLowerTrimmed(tokens[i]);
-                if (col == target_time || col == "timestamp" || col == "time" || col == "t" || col == "epoch") {
+                if (col == target_time || col == "timestamp" || col == "time" || col == "t" || col == "epoch" || col == "timestamp_s" || col == "time_s" || col == "t_s") {
                     idx_time = static_cast<int>(i);
-                } else if (col == target_volt || col == "voltage" || col == "v" || col == "volt" || col == "voltage_v") {
+                } else if (col == target_volt || col == "voltage" || col == "v" || col == "volt" || col == "voltage_v" || col == "volt_v" || col == "v_v") {
                     idx_volt = static_cast<int>(i);
-                } else if (col == target_curr || col == "current" || col == "i" || col == "curr" || col == "current_a") {
+                } else if (col == target_curr || col == "current" || col == "i" || col == "curr" || col == "current_a" || col == "curr_a" || col == "i_a") {
                     idx_curr = static_cast<int>(i);
-                } else if (col == target_temp || col == "temperature" || col == "temp" || col == "t_c" || col == "temp_c") {
+                } else if (col == target_temp || col == "temperature" || col == "temp" || col == "t_c" || col == "temp_c" || col == "temperature_c") {
                     idx_temp = static_cast<int>(i);
                 } else if (col == target_soc || col == "soc") {
                     idx_soc = static_cast<int>(i);
